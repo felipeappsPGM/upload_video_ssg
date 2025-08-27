@@ -2,7 +2,7 @@ import { DataSource } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { Video, VideoStatus } from '../../videos/entities/video.entity';
 import { UserVideo, AccessType } from '../../videos/entities/user-video.entity';
-import { AppDataSource } from '../database.connection';
+import { AppDataSource } from '../data-source';
 
 class DatabaseSeeder {
   private dataSource: DataSource;

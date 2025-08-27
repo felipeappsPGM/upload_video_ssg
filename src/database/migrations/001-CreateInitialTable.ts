@@ -1,410 +1,123 @@
-import { MigrationInterface, QueryRunner, Table, Index, ForeignKey } from 'typeorm';
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class CreateInitialTables1703000001000 implements MigrationInterface {
   name = 'CreateInitialTables1703000001000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // Criar tabela Users
-    await queryRunner.createTable(
-      new Table({
-        name: 'users',
-        columns: [
-          {
-            name: 'id',
-            type: 'uniqueidentifier',
-            isPrimary: true,
-            generationStrategy: 'uuid',
-            default: 'NEWID()',
-          },
-          {
-            name: 'email',
-            type: 'varchar',
-            length: '255',
-            isUnique: true,
-            isNullable: false,
-          },
-          {
-            name: 'firstName',
-            type: 'varchar',
-            length: '100',
-            isNullable: true,
-          },
-          {
-            name: 'lastName',
-            type: 'varchar',
-            length: '100',
-            isNullable: true,
-          },
-          {
-            name: 'isActive',
-            type: 'bit',
-            default: 1,
-          },
-          {
-            name: 'lastLoginAt',
-            type: 'datetime2',
-            isNullable: true,
-          },
-          {
-            name: 'createdAt',
-            type: 'datetime2',
-            default: 'GETDATE()',
-          },
-          {
-            name: 'updatedAt',
-            type: 'datetime2',
-            default: 'GETDATE()',
-          },
-        ],
-      }),
-      true,
-    );
+    // Criar tabela Users usando SQL direto para evitar problemas de API
+    await queryRunner.query(`
+      CREATE TABLE users (
+        id uniqueidentifier PRIMARY KEY DEFAULT NEWID(),
+        email varchar(255) UNIQUE NOT NULL,
+        firstName varchar(100) NULL,
+        lastName varchar(100) NULL,
+        isActive bit DEFAULT 1,
+        lastLoginAt datetime2 NULL,
+        createdAt datetime2 DEFAULT GETDATE(),
+        updatedAt datetime2 DEFAULT GETDATE()
+      )
+    `);
 
     // Criar tabela Videos
-    await queryRunner.createTable(
-      new Table({
-        name: 'videos',
-        columns: [
-          {
-            name: 'id',
-            type: 'int',
-            isPrimary: true,
-            isGenerated: true,
-            generationStrategy: 'increment',
-          },
-          {
-            name: 'title',
-            type: 'varchar',
-            length: '255',
-            isNullable: false,
-          },
-          {
-            name: 'description',
-            type: 'text',
-            isNullable: true,
-          },
-          {
-            name: 'url',
-            type: 'varchar',
-            length: '500',
-            isNullable: false,
-          },
-          {
-            name: 'thumbnailUrl',
-            type: 'varchar',
-            length: '500',
-            isNullable: true,
-          },
-          {
-            name: 'duration',
-            type: 'varchar',
-            length: '10',
-            isNullable: true,
-            comment: 'Duration in format MM:SS or HH:MM:SS',
-          },
-          {
-            name: 'durationSeconds',
-            type: 'int',
-            isNullable: true,
-            comment: 'Duration in seconds',
-          },
-          {
-            name: 'status',
-            type: 'varchar',
-            length: '50',
-            default: "'PUBLISHED'",
-          },
-          {
-            name: 'isActive',
-            type: 'bit',
-            default: 1,
-          },
-          {
-            name: 'category',
-            type: 'varchar',
-            length: '100',
-            isNullable: true,
-          },
-          {
-            name: 'tags',
-            type: 'text',
-            isNullable: true,
-            comment: 'Tags separated by comma',
-          },
-          {
-            name: 'viewCount',
-            type: 'int',
-            default: 0,
-          },
-          {
-            name: 'fileSize',
-            type: 'bigint',
-            isNullable: true,
-            comment: 'File size in bytes',
-          },
-          {
-            name: 'resolution',
-            type: 'varchar',
-            length: '10',
-            isNullable: true,
-            comment: 'Video resolution (e.g., 1080p, 720p)',
-          },
-          {
-            name: 'createdAt',
-            type: 'datetime2',
-            default: 'GETDATE()',
-          },
-          {
-            name: 'updatedAt',
-            type: 'datetime2',
-            default: 'GETDATE()',
-          },
-        ],
-      }),
-      true,
-    );
+    await queryRunner.query(`
+      CREATE TABLE videos (
+        id int IDENTITY(1,1) PRIMARY KEY,
+        title varchar(255) NOT NULL,
+        description text NULL,
+        url varchar(500) NOT NULL,
+        thumbnailUrl varchar(500) NULL,
+        duration varchar(10) NULL,
+        durationSeconds int NULL,
+        status varchar(50) DEFAULT 'PUBLISHED',
+        isActive bit DEFAULT 1,
+        category varchar(100) NULL,
+        tags text NULL,
+        viewCount int DEFAULT 0,
+        fileSize bigint NULL,
+        resolution varchar(10) NULL,
+        createdAt datetime2 DEFAULT GETDATE(),
+        updatedAt datetime2 DEFAULT GETDATE()
+      )
+    `);
 
     // Criar tabela Tokens
-    await queryRunner.createTable(
-      new Table({
-        name: 'tokens',
-        columns: [
-          {
-            name: 'id',
-            type: 'uniqueidentifier',
-            isPrimary: true,
-            generationStrategy: 'uuid',
-            default: 'NEWID()',
-          },
-          {
-            name: 'token',
-            type: 'varchar',
-            length: '10',
-            isNullable: false,
-          },
-          {
-            name: 'type',
-            type: 'varchar',
-            length: '50',
-            default: "'EMAIL_LOGIN'",
-          },
-          {
-            name: 'expiresAt',
-            type: 'datetime2',
-            isNullable: false,
-          },
-          {
-            name: 'isUsed',
-            type: 'bit',
-            default: 0,
-          },
-          {
-            name: 'usedAt',
-            type: 'datetime2',
-            isNullable: true,
-          },
-          {
-            name: 'ipAddress',
-            type: 'varchar',
-            length: '45',
-            isNullable: true,
-          },
-          {
-            name: 'userAgent',
-            type: 'varchar',
-            length: '500',
-            isNullable: true,
-          },
-          {
-            name: 'userId',
-            type: 'uniqueidentifier',
-            isNullable: false,
-          },
-          {
-            name: 'createdAt',
-            type: 'datetime2',
-            default: 'GETDATE()',
-          },
-        ],
-      }),
-      true,
-    );
+    await queryRunner.query(`
+      CREATE TABLE tokens (
+        id uniqueidentifier PRIMARY KEY DEFAULT NEWID(),
+        token varchar(10) NOT NULL,
+        type varchar(50) DEFAULT 'EMAIL_LOGIN',
+        expiresAt datetime2 NOT NULL,
+        isUsed bit DEFAULT 0,
+        usedAt datetime2 NULL,
+        ipAddress varchar(45) NULL,
+        userAgent varchar(500) NULL,
+        userId uniqueidentifier NOT NULL,
+        createdAt datetime2 DEFAULT GETDATE()
+      )
+    `);
 
     // Criar tabela UserVideos
-    await queryRunner.createTable(
-      new Table({
-        name: 'user_videos',
-        columns: [
-          {
-            name: 'id',
-            type: 'uniqueidentifier',
-            isPrimary: true,
-            generationStrategy: 'uuid',
-            default: 'NEWID()',
-          },
-          {
-            name: 'accessType',
-            type: 'varchar',
-            length: '50',
-            default: "'ASSIGNED'",
-          },
-          {
-            name: 'expiresAt',
-            type: 'datetime2',
-            isNullable: true,
-            comment: 'When access expires (null = no expiration)',
-          },
-          {
-            name: 'isActive',
-            type: 'bit',
-            default: 1,
-          },
-          {
-            name: 'firstViewedAt',
-            type: 'datetime2',
-            isNullable: true,
-          },
-          {
-            name: 'lastViewedAt',
-            type: 'datetime2',
-            isNullable: true,
-          },
-          {
-            name: 'viewCount',
-            type: 'int',
-            default: 0,
-          },
-          {
-            name: 'watchPosition',
-            type: 'int',
-            default: 0,
-            comment: 'Last watched position in seconds',
-          },
-          {
-            name: 'completionPercentage',
-            type: 'decimal(5,2)',
-            default: 0,
-            comment: 'Completion percentage (0-100)',
-          },
-          {
-            name: 'isCompleted',
-            type: 'bit',
-            default: 0,
-          },
-          {
-            name: 'grantedBy',
-            type: 'varchar',
-            length: '255',
-            isNullable: true,
-            comment: 'Who granted access',
-          },
-          {
-            name: 'notes',
-            type: 'text',
-            isNullable: true,
-          },
-          {
-            name: 'userId',
-            type: 'uniqueidentifier',
-            isNullable: false,
-          },
-          {
-            name: 'videoId',
-            type: 'int',
-            isNullable: false,
-          },
-          {
-            name: 'createdAt',
-            type: 'datetime2',
-            default: 'GETDATE()',
-          },
-          {
-            name: 'updatedAt',
-            type: 'datetime2',
-            default: 'GETDATE()',
-          },
-        ],
-      }),
-      true,
-    );
+    await queryRunner.query(`
+      CREATE TABLE user_videos (
+        id uniqueidentifier PRIMARY KEY DEFAULT NEWID(),
+        accessType varchar(50) DEFAULT 'ASSIGNED',
+        expiresAt datetime2 NULL,
+        isActive bit DEFAULT 1,
+        firstViewedAt datetime2 NULL,
+        lastViewedAt datetime2 NULL,
+        viewCount int DEFAULT 0,
+        watchPosition int DEFAULT 0,
+        completionPercentage decimal(5,2) DEFAULT 0,
+        isCompleted bit DEFAULT 0,
+        grantedBy varchar(255) NULL,
+        notes text NULL,
+        userId uniqueidentifier NOT NULL,
+        videoId int NOT NULL,
+        createdAt datetime2 DEFAULT GETDATE(),
+        updatedAt datetime2 DEFAULT GETDATE()
+      )
+    `);
 
     // Criar índices
-    await queryRunner.createIndex(
-      'videos',
-      new Index('IDX_videos_status_active', ['status', 'isActive']),
-    );
-
-    await queryRunner.createIndex(
-      'tokens',
-      new Index('IDX_tokens_token_type', ['token', 'type']),
-    );
-
-    await queryRunner.createIndex(
-      'tokens',
-      new Index('IDX_tokens_userId_type', ['userId', 'type']),
-    );
-
-    await queryRunner.createIndex(
-      'user_videos',
-      new Index('IDX_user_videos_userId_accessType', ['userId', 'accessType']),
-    );
-
-    await queryRunner.createIndex(
-      'user_videos',
-      new Index('IDX_user_videos_videoId_accessType', ['videoId', 'accessType']),
-    );
-
-    // Criar constraint de unique em user_videos
-    await queryRunner.createIndex(
-      'user_videos',
-      new Index('UQ_user_videos_userId_videoId', ['userId', 'videoId'], { isUnique: true }),
-    );
+    await queryRunner.query(`CREATE INDEX IDX_videos_status_active ON videos (status, isActive)`);
+    await queryRunner.query(`CREATE INDEX IDX_tokens_token_type ON tokens (token, type)`);
+    await queryRunner.query(`CREATE INDEX IDX_tokens_userId_type ON tokens (userId, type)`);
+    await queryRunner.query(`CREATE INDEX IDX_user_videos_userId_accessType ON user_videos (userId, accessType)`);
+    await queryRunner.query(`CREATE INDEX IDX_user_videos_videoId_accessType ON user_videos (videoId, accessType)`);
+    
+    // Criar constraint único
+    await queryRunner.query(`CREATE UNIQUE INDEX UQ_user_videos_userId_videoId ON user_videos (userId, videoId)`);
 
     // Criar Foreign Keys
-    await queryRunner.createForeignKey(
-      'tokens',
-      new ForeignKey({
-        columnNames: ['userId'],
-        referencedTableName: 'users',
-        referencedColumnNames: ['id'],
-        onDelete: 'CASCADE',
-        name: 'FK_tokens_users',
-      }),
-    );
+    await queryRunner.query(`
+      ALTER TABLE tokens 
+      ADD CONSTRAINT FK_tokens_users 
+      FOREIGN KEY (userId) REFERENCES users (id) ON DELETE CASCADE
+    `);
 
-    await queryRunner.createForeignKey(
-      'user_videos',
-      new ForeignKey({
-        columnNames: ['userId'],
-        referencedTableName: 'users',
-        referencedColumnNames: ['id'],
-        onDelete: 'CASCADE',
-        name: 'FK_user_videos_users',
-      }),
-    );
+    await queryRunner.query(`
+      ALTER TABLE user_videos 
+      ADD CONSTRAINT FK_user_videos_users 
+      FOREIGN KEY (userId) REFERENCES users (id) ON DELETE CASCADE
+    `);
 
-    await queryRunner.createForeignKey(
-      'user_videos',
-      new ForeignKey({
-        columnNames: ['videoId'],
-        referencedTableName: 'videos',
-        referencedColumnNames: ['id'],
-        onDelete: 'CASCADE',
-        name: 'FK_user_videos_videos',
-      }),
-    );
+    await queryRunner.query(`
+      ALTER TABLE user_videos 
+      ADD CONSTRAINT FK_user_videos_videos 
+      FOREIGN KEY (videoId) REFERENCES videos (id) ON DELETE CASCADE
+    `);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     // Remover Foreign Keys
-    await queryRunner.dropForeignKey('user_videos', 'FK_user_videos_videos');
-    await queryRunner.dropForeignKey('user_videos', 'FK_user_videos_users');
-    await queryRunner.dropForeignKey('tokens', 'FK_tokens_users');
+    await queryRunner.query(`ALTER TABLE user_videos DROP CONSTRAINT FK_user_videos_videos`);
+    await queryRunner.query(`ALTER TABLE user_videos DROP CONSTRAINT FK_user_videos_users`);
+    await queryRunner.query(`ALTER TABLE tokens DROP CONSTRAINT FK_tokens_users`);
 
     // Remover tabelas
-    await queryRunner.dropTable('user_videos');
-    await queryRunner.dropTable('tokens');
-    await queryRunner.dropTable('videos');
-    await queryRunner.dropTable('users');
+    await queryRunner.query(`DROP TABLE user_videos`);
+    await queryRunner.query(`DROP TABLE tokens`);
+    await queryRunner.query(`DROP TABLE videos`);
+    await queryRunner.query(`DROP TABLE users`);
   }
 }

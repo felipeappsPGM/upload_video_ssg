@@ -17,7 +17,19 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "typeorm": "typeorm-ts-node-commonjs",
+    "migration:generate": "npm run typeorm -- migration:generate -d src/database/data-source.ts",
+    "migration:run": "npm run typeorm -- migration:run -d src/database/data-source.ts",
+    "migration:revert": "npm run typeorm -- migration:revert -d src/database/data-source.ts",
+    "seed": "ts-node src/database/seeds/seed.ts",
+    "diagnose": "node scripts/diagnose-connection.js",
+    "migration:helper": "node scripts/run-migrations.js",
+    "setup": "npm run build && npm run migration:helper && npm run seed",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "quick-start": "npm run docker:up && timeout 30 && npm run setup && npm run start:dev"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.6",

@@ -127,11 +127,13 @@ export class UserVideo {
   @JoinColumn({ name: 'userId' })
   user: User;
 
+  // CORRIGIDO: propriedade video opcional
   @ManyToOne(() => Video, (video) => video.userVideos, {
     onDelete: 'CASCADE',
+    nullable: true, // Explicitamente opcional
   })
   @JoinColumn({ name: 'videoId' })
-  video: Video;
+  video?: Video;
 
   // Methods
   hasAccess(): boolean {

@@ -34,7 +34,7 @@ export class VideosService {
 
   // Obter vídeos exclusivos do usuário
   async findUserVideos(userId: string, search?: VideoSearchDto): Promise<{
-    videos: Array<Video & { userVideoInfo: UserVideo }>;
+    videos: any[];
     total: number;
   }> {
     let queryBuilder = this.userVideoRepository
@@ -83,8 +83,22 @@ export class VideosService {
     const videos = userVideos.map(uv => ({
       ...uv.video,
       userVideoInfo: {
-        ...uv,
-        video: undefined, // Remove circular reference
+        id: uv.id,
+        accessType: uv.accessType,
+        expiresAt: uv.expiresAt,
+        isActive: uv.isActive,
+        firstViewedAt: uv.firstViewedAt,
+        lastViewedAt: uv.lastViewedAt,
+        viewCount: uv.viewCount,
+        watchPosition: uv.watchPosition,
+        completionPercentage: uv.completionPercentage,
+        isCompleted: uv.isCompleted,
+        grantedBy: uv.grantedBy,
+        notes: uv.notes,
+        userId: uv.userId,
+        videoId: uv.videoId,
+        createdAt: uv.createdAt,
+        updatedAt: uv.updatedAt,
       },
     }));
 
@@ -92,7 +106,7 @@ export class VideosService {
   }
 
   // Obter vídeo específico do usuário
-  async findUserVideo(userId: string, videoId: number): Promise<Video & { userVideoInfo: UserVideo }> {
+  async findUserVideo(userId: string, videoId: number): Promise<any> {
     const userVideo = await this.userVideoRepository.findOne({
       where: {
         userId,
@@ -110,15 +124,29 @@ export class VideosService {
       throw new ForbiddenException('Acesso ao vídeo expirado');
     }
 
-    if (!userVideo.video.isPublished()) {
+    if (!userVideo.video || !userVideo.video.isPublished()) {
       throw new ForbiddenException('Vídeo não está disponível');
     }
 
     return {
       ...userVideo.video,
       userVideoInfo: {
-        ...userVideo,
-        video: undefined,
+        id: userVideo.id,
+        accessType: userVideo.accessType,
+        expiresAt: userVideo.expiresAt,
+        isActive: userVideo.isActive,
+        firstViewedAt: userVideo.firstViewedAt,
+        lastViewedAt: userVideo.lastViewedAt,
+        viewCount: userVideo.viewCount,
+        watchPosition: userVideo.watchPosition,
+        completionPercentage: userVideo.completionPercentage,
+        isCompleted: userVideo.isCompleted,
+        grantedBy: userVideo.grantedBy,
+        notes: userVideo.notes,
+        userId: userVideo.userId,
+        videoId: userVideo.videoId,
+        createdAt: userVideo.createdAt,
+        updatedAt: userVideo.updatedAt,
       },
     };
   }
@@ -142,7 +170,7 @@ export class VideosService {
     userVideo.markAsViewed();
 
     // Atualizar progresso se fornecido
-    if (watchPosition && userVideo.video.durationSeconds) {
+    if (watchPosition && userVideo.video && userVideo.video.durationSeconds) {
       userVideo.updateWatchProgress(watchPosition, userVideo.video.durationSeconds);
     }
 

@@ -7,33 +7,108 @@ import { Transporter } from 'nodemailer';
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
   private transporter: Transporter;
+  private emailConfigured = false;
 
   constructor(private readonly configService: ConfigService) {
     this.initializeTransporter();
   }
 
   private initializeTransporter(): void {
-    const emailConfig = {
-      service: 'gmail',
-      auth: {
-        user: this.configService.get<string>('EMAIL_USER'),
-        pass: this.configService.get<string>('EMAIL_PASS'),
-      },
-    };
+    const emailUser = this.configService.get<string>('EMAIL_USER');
+    const emailPass = this.configService.get<string>('EMAIL_PASS');
+    const emailHost = this.configService.get<string>('EMAIL_HOST', 'smtp.gmail.com');
+    const emailPort = this.configService.get<number>('EMAIL_PORT', 587);
+    const emailSecure = this.configService.get<boolean>('EMAIL_SECURE', false);
 
-    this.transporter = nodemailer.createTransporter(emailConfig);
+    // ✅ CORREÇÃO: Verificar se as credenciais estão configuradas
+    if (!emailUser) {
+      this.logger.warn('EMAIL_USER não configurado. Serviço de e-mail será simulado.');
+      this.emailConfigured = false;
+      return;
+    }
 
-    // Verificar configuração
-    this.transporter.verify((error, success) => {
-      if (error) {
-        this.logger.error('Erro na configuração do e-mail:', error);
-      } else {
-        this.logger.log('Servidor de e-mail configurado com sucesso');
+    // ✅ Para MailHog ou desenvolvimento, permitir sem senha
+    const isMailHog = emailHost === 'localhost' || emailHost === 'mailhog';
+    if (!emailPass && !isMailHog) {
+      this.logger.warn('EMAIL_PASS não configurado. Configure uma senha de aplicativo.');
+      this.emailConfigured = false;
+      return;
+    }
+
+    try {
+      // ✅ CORREÇÃO: Configuração mais robusta do transporter
+      const emailConfig: any = {
+        host: emailHost,
+        port: emailPort,
+        secure: emailSecure, // true para 465, false para 587
+      };
+
+      // Apenas adicionar auth se não for MailHog
+      if (!isMailHog) {
+        emailConfig.auth = {
+          user: emailUser,
+          pass: emailPass,
+        };
+
+        // ✅ Para Gmail, adicionar configurações específicas
+        if (emailHost.includes('gmail')) {
+          emailConfig.service = 'gmail';
+          emailConfig.auth.type = 'OAuth2';
+          delete emailConfig.auth.type; // Usar autenticação simples
+        }
       }
-    });
+
+      this.logger.log(`Configurando e-mail: ${emailHost}:${emailPort} (secure: ${emailSecure})`);
+      this.transporter = nodemailer.createTransport(emailConfig);
+
+      // ✅ CORREÇÃO: Verificação assíncrona e não bloquear inicialização
+      this.verifyConnection();
+
+    } catch (error) {
+      this.logger.error('Erro ao configurar transporter de e-mail:', error.message);
+      this.emailConfigured = false;
+    }
+  }
+
+  private async verifyConnection(): Promise<void> {
+    try {
+      await this.transporter.verify();
+      this.logger.log('✅ Servidor de e-mail configurado com sucesso');
+      this.emailConfigured = true;
+    } catch (error) {
+      this.logger.error('❌ Erro na verificação do e-mail:', error.message);
+      
+      // ✅ Instruções específicas baseadas no erro
+      if (error.code === 'EAUTH') {
+        this.logger.error(`
+🔧 SOLUÇÃO PARA ERRO DE AUTENTICAÇÃO:
+1. Para Gmail:
+   - Acesse: https://myaccount.google.com/apppasswords
+   - Gere uma senha de aplicativo de 16 dígitos
+   - Use essa senha no EMAIL_PASS (não sua senha normal)
+   
+2. Para desenvolvimento:
+   - Use MailHog: docker-compose up -d mailhog
+   - Configure: EMAIL_HOST=localhost, EMAIL_PORT=1025
+   
+3. Verificar variáveis:
+   - EMAIL_USER=${this.configService.get('EMAIL_USER', 'não definido')}
+   - EMAIL_PASS=${this.configService.get('EMAIL_PASS') ? '[DEFINIDO]' : '[NÃO DEFINIDO]'}
+        `);
+      }
+      
+      this.emailConfigured = false;
+    }
   }
 
   async sendLoginToken(email: string, token: string): Promise<void> {
+    // ✅ Se e-mail não configurado, simular envio
+    if (!this.emailConfigured) {
+      this.logger.warn(`📧 [SIMULADO] Token para ${email}: ${token}`);
+      this.logger.warn('Configure EMAIL_USER e EMAIL_PASS para envio real');
+      return;
+    }
+
     const mailOptions = {
       from: {
         name: 'SysMap View',
@@ -46,14 +121,28 @@ export class EmailService {
 
     try {
       const result = await this.transporter.sendMail(mailOptions);
-      this.logger.log(`E-mail enviado com sucesso para ${email}. MessageId: ${result.messageId}`);
+      this.logger.log(`📧 E-mail enviado com sucesso para ${email}. MessageId: ${result.messageId}`);
     } catch (error) {
-      this.logger.error(`Erro ao enviar e-mail para ${email}:`, error.stack);
+      this.logger.error(`❌ Erro ao enviar e-mail para ${email}:`, error.message);
+      
+      // ✅ Em desenvolvimento, não falhar completamente
+      if (this.configService.get('NODE_ENV') === 'development') {
+        this.logger.warn(`📧 [FALLBACK] Token para ${email}: ${token}`);
+        return;
+      }
+      
       throw new Error('Falha ao enviar e-mail');
     }
   }
 
   async sendWelcomeEmail(email: string, firstName?: string): Promise<void> {
+    if (!this.emailConfigured) {
+      this.logger.log(`📧 [SIMULADO] E-mail de boas-vindas para ${email}`);
+      return;
+    }
+
+    const name = firstName ? firstName : 'Usuário';
+    
     const mailOptions = {
       from: {
         name: 'SysMap View',
@@ -61,19 +150,24 @@ export class EmailService {
       },
       to: email,
       subject: 'Bem-vindo ao SysMap View!',
-      html: this.getWelcomeTemplate(firstName),
+      html: this.getWelcomeTemplate(name),
     };
 
     try {
       await this.transporter.sendMail(mailOptions);
-      this.logger.log(`E-mail de boas-vindas enviado para ${email}`);
+      this.logger.log(`📧 E-mail de boas-vindas enviado para ${email}`);
     } catch (error) {
-      this.logger.error(`Erro ao enviar e-mail de boas-vindas para ${email}:`, error.stack);
-      // Não lançar erro aqui pois não é crítico
+      this.logger.error(`❌ Erro ao enviar e-mail de boas-vindas para ${email}:`, error.message);
+      // Não lançar erro pois não é crítico
     }
   }
 
   async sendNotificationEmail(email: string, subject: string, content: string): Promise<void> {
+    if (!this.emailConfigured) {
+      this.logger.log(`📧 [SIMULADO] Notificação para ${email}: ${subject}`);
+      return;
+    }
+
     const mailOptions = {
       from: {
         name: 'SysMap View',
@@ -86,10 +180,19 @@ export class EmailService {
 
     try {
       await this.transporter.sendMail(mailOptions);
-      this.logger.log(`E-mail de notificação enviado para ${email}`);
+      this.logger.log(`📧 E-mail de notificação enviado para ${email}`);
     } catch (error) {
-      this.logger.error(`Erro ao enviar e-mail de notificação para ${email}:`, error.stack);
+      this.logger.error(`❌ Erro ao enviar e-mail de notificação para ${email}:`, error.message);
     }
+  }
+
+  // ✅ Método para verificar status da configuração
+  getEmailStatus(): { configured: boolean; service: string; user?: string } {
+    return {
+      configured: this.emailConfigured,
+      service: this.configService.get<string>('EMAIL_HOST', 'não configurado'),
+      user: this.emailConfigured ? this.configService.get<string>('EMAIL_USER') : undefined,
+    };
   }
 
   private getLoginTokenTemplate(token: string): string {
@@ -165,9 +268,7 @@ export class EmailService {
     `;
   }
 
-  private getWelcomeTemplate(firstName?: string): string {
-    const name = firstName ? firstName : 'Usuário';
-    
+  private getWelcomeTemplate(firstName: string): string {
     return `
       <!DOCTYPE html>
       <html lang="pt-BR">
@@ -184,7 +285,7 @@ export class EmailService {
               </div>
               
               <div style="padding: 40px 30px;">
-                  <h2>Olá, ${name}! 👋</h2>
+                  <h2>Olá, ${firstName}! 👋</h2>
                   <p>É um prazer tê-lo conosco na SysMap View, sua nova plataforma de vídeos exclusivos.</p>
                   <p>Agora você tem acesso a conteúdos selecionados especialmente para o seu perfil.</p>
                   <p>Aproveite a experiência!</p>
