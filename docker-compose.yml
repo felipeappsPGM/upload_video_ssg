@@ -1,0 +1,139 @@
+version: '3.8'
+
+services:
+  # SQL Server Database
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sysmap-view-sqlserver
+    hostname: sqlserver
+    environment:
+      ACCEPT_EULA: Y
+      SA_PASSWORD: SysMapView123!
+      MSSQL_PID: Developer
+      MSSQL_COLLATION: SQL_Latin1_General_CP1_CI_AS
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    restart: unless-stopped
+    networks:
+      - sysmap-network
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools/bin/sqlcmd -S localhost -U SA -P 'SysMapView123!' -Q 'SELECT 1' -b -o /dev/null"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  # Redis para cache (opcional)
+  redis:
+    image: redis:7-alpine
+    container_name: sysmap-view-redis
+    hostname: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - sysmap-network
+    command: redis-server --appendonly yes --requirepass "SysMapView123!"
+
+  # MailHog para desenvolvimento (captura e-mails)
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: sysmap-view-mailhog
+    hostname: mailhog
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # Web UI
+    restart: unless-stopped
+    networks:
+      - sysmap-network
+
+  # Aplicação NestJS (desenvolvimento)
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: sysmap-view-api
+    hostname: app
+    ports:
+      - "3001:3001"
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      DB_HOST: sqlserver
+      DB_PORT: 1433
+      DB_USERNAME: sa
+      DB_PASSWORD: SysMapView123!
+      DB_DATABASE: sysmap_view
+      DB_ENCRYPT: false
+      DB_TRUST_SERVER_CERTIFICATE: true
+      JWT_SECRET: dev-jwt-secret-key-for-docker
+      EMAIL_HOST: mailhog
+      EMAIL_PORT: 1025
+      EMAIL_USER: dev@sysmap.com
+      EMAIL_PASS: ""
+      FRONTEND_URL: http://localhost:3000
+    volumes:
+      - ./src:/app/src
+      - ./package.json:/app/package.json
+      - ./tsconfig.json:/app/tsconfig.json
+      - /app/node_modules
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      mailhog:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - sysmap-network
+    command: npm run start:dev
+
+volumes:
+  sqlserver_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  sysmap-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# ===========================================
+# COMANDOS ÚTEIS:
+# ===========================================
+#
+# Iniciar todos os serviços:
+# docker-compose up -d
+#
+# Ver logs da aplicação:
+# docker-compose logs -f app
+#
+# Ver logs do banco:
+# docker-compose logs -f sqlserver
+#
+# Executar migrations:
+# docker-compose exec app npm run migration:run
+#
+# Executar seed:
+# docker-compose exec app npm run seed
+#
+# Acessar shell do SQL Server:
+# docker-compose exec sqlserver /opt/mssql-tools/bin/sqlcmd -S localhost -U SA -P "SysMapView123!"
+#
+# Parar todos os serviços:
+# docker-compose down
+#
+# Resetar banco (CUIDADO - remove todos os dados):
+# docker-compose down -v
+#
+# Ver e-mails enviados (desenvolvimento):
+# http://localhost:8025
