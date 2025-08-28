@@ -105,12 +105,19 @@ export class VideosController {
     return { videos, total, query, limit, offset };
   }
 
-  @Get('admin/stats/:id?')
+  // CORRIGIDO: Duas rotas separadas em vez de parâmetro opcional
+  @Get('admin/stats')
   @UseGuards(JwtAuthGuard)
   // TODO: Adicionar RoleGuard para admin apenas
-  async getStats(@Param('id') videoId?: string): Promise<VideoStatsDto> {
-    const id = videoId ? parseInt(videoId) : undefined;
-    return await this.videosService.getVideoStats(id);
+  async getAllStats(): Promise<VideoStatsDto> {
+    return await this.videosService.getVideoStats();
+  }
+
+  @Get('admin/stats/:id')
+  @UseGuards(JwtAuthGuard)
+  // TODO: Adicionar RoleGuard para admin apenas
+  async getVideoStats(@Param('id', ParseIntPipe) videoId: number): Promise<VideoStatsDto> {
+    return await this.videosService.getVideoStats(videoId);
   }
 
   // ========== ROTAS DO USUÁRIO ==========

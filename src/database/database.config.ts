@@ -28,7 +28,9 @@ export class DatabaseConfig implements TypeOrmOptionsFactory {
       password: this.configService.get('DB_PASSWORD'),
       database: this.configService.get('DB_DATABASE', 'sysmap_view'),
       entities: [User, Token, Video, UserVideo],
-      synchronize: !isProduction && this.configService.get('DB_AUTO_SYNC', 'true') === 'true',
+      // synchronize: !isProduction && this.configService.get('DB_AUTO_SYNC', 'true') === 'true',
+      synchronize: false, // ← SEMPRE false para evitar conflitos
+
       logging: this.configService.get('NODE_ENV') === 'development',
       
       // ✅ CORREÇÃO: Configuração robusta para mssql
